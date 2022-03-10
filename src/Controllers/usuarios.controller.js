@@ -3,7 +3,8 @@ const Producto = require('../models/productos.model');
 const Factura = require('../models/Factura.model');
 const bcrypt = require('bcrypt-nodejs');
 const jwt = require('../services/jwt');
-
+const PdfkitConstruct = require('pdfkit-construct');
+const fs = require('fs'); 
 //METODO PARA OBTNER TODA LA LISTA DE USUARIOS (ADMINISTRADORES Y CLIENTES)
 
 function ObtenerUsuarios(req, res) {
@@ -113,6 +114,7 @@ function Login(req, res) {
 
                     //SI EL PARAMETRO OBTENERTOKEN ES TRUE, CREA EL TOKEN
                     if(parametros.obtenerToken === 'true'){
+
                         return res.status(500).send({token: jwt.crearToken(usuarioEcontrado)});
                     }else{
                         usuarioEcontrado.password = undefined;
@@ -357,6 +359,8 @@ function agregarProductoCarrito(req, res) {
 }
 
 function carritoAfactura(req, res){
+    var parametros = req.body;
+    var logueado = req.user.nombre;
 
      const facturaModel = new Factura();
 
@@ -371,11 +375,18 @@ function carritoAfactura(req, res){
                 facturaModel.listaProductos = usuarioEncontrado.carrito;
                 facturaModel.idUsuario = req.user.sub;
                 facturaModel.totalFactura = usuarioEncontrado.totalCarrito;
+                if(parametros.nit){
+                    facturaModel.nit = parametros.nit
+                }else{
+                    facturaModel.nit = 'Consumidor final'
+                }
+                
     
                 facturaModel.save((err, facturaGuaardada) => {
                     if (err) return res.status(500).send({mensaje : "Error en la peticion"});
                     if(!facturaGuaardada) return res.status(500).send({mensaje : "Ocurrio un error al intentar guardar la factura"})
-            
+                    obtenerPDF(facturaGuaardada, logueado);
+                    
                 
                     for (let i = 0; i < usuarioEncontrado.carrito.length; i++) {
                         Producto.findOneAndUpdate({nombre: usuarioEncontrado.carrito[i].nombreProducto} , 
@@ -398,37 +409,64 @@ function carritoAfactura(req, res){
 
 function eliminarProductoCarrito(req, res) {
     var parametros = req.body;
-
+    
     let totalCarritoLocal = 0;
 
-    Producto.findOne({nombre: parametros.nombreProducto}, (err, productoEncontrado) => {
-        if (err) return res.status(500).send({mensaje: 'Error en la peticion'})
-        if(!productoEncontrado) return res.status(500).send({mensaje: 'Este producto no existe, verifica el nombre'});
-
-        Usuarios.updateOne({_id: req.user.sub},{ $pull: { carrito: {nombreProducto:parametros.nombreProducto} } }, (err, carritoEliminado)=>{
-            if(err) return res.status(500).send({mensaje: 'Error en la peticion'});
-            if(!carritoEliminado) return res.status(500).send({mensaje: 'Este producto no esta en tu carrito, verfica bien el nombre'});
-            Usuarios.findOne({_id: req.user.sub}, (err, usuarioEncontrado) =>{
-                if(err) return res.status(500).send({ mensaje: "Error en la peticion de Total Carrito"});
-                if(!usuarioEncontrado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
+    if(req.user.rol == 'ADMIN'){
+        return res.status(500).send({mensaje: 'Eres un administrador, no puedes realizar esta accio'})
+    }else{
+        Producto.findOne({nombre: parametros.nombreProducto}, (err, productoEncontrado) => {
+            if (err) return res.status(500).send({mensaje: 'Error en la peticion'})
+            if(!productoEncontrado) return res.status(500).send({mensaje: 'Este producto no existe, verifica el nombre'});
     
-                for (let i = 0; i < usuarioEncontrado.carrito.length; i++){
-                    totalCarritoLocal += usuarioEncontrado.carrito[i].subTotal 
-                    console.log(totalCarritoLocal)   
-                }
-    
-                Usuarios.findByIdAndUpdate({_id: req.user.sub},  { totalCarrito: totalCarritoLocal }, {new: true},
-                    (err, totalActualizado)=> {
-                        if(err) return res.status(500).send({ mensaje: "Error en la peticion de Total Carrito"});
-                        if(!totalActualizado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
+            Usuarios.updateOne({_id: req.user.sub},{ $pull: { carrito: {nombreProducto:parametros.nombreProducto} } }, (err, carritoEliminado)=>{
+                if(err) return res.status(500).send({mensaje: 'Error en la peticion'});
+                if(!carritoEliminado) return res.status(500).send({mensaje: 'Este producto no esta en tu carrito, verfica bien el nombre'});
+                Usuarios.findOne({_id: req.user.sub}, (err, usuarioEncontrado) =>{
+                    if(err) return res.status(500).send({ mensaje: "Error en la peticion de Total Carrito"});
+                    if(!usuarioEncontrado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
         
-                        return res.status(200).send({ usuario: totalActualizado })
-                    });
-            });
+                    for (let i = 0; i < usuarioEncontrado.carrito.length; i++){
+                        totalCarritoLocal += usuarioEncontrado.carrito[i].subTotal 
+                        console.log(totalCarritoLocal)   
+                    }
+        
+                    Usuarios.findByIdAndUpdate({_id: req.user.sub},  { totalCarrito: totalCarritoLocal }, {new: true},
+                        (err, totalActualizado)=> {
+                            if(err) return res.status(500).send({ mensaje: "Error en la peticion de Total Carrito"});
+                            if(!totalActualizado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
             
+                            return res.status(200).send({ usuario: totalActualizado })
+                        });
+                });
+                
+            });
         });
+    }
+}
+
+function obtenerPDF(facturaGuaardada, logueado)  {
+    let contador = 0;
+    console.log(facturaGuaardada)
+    const doc = new PdfkitConstruct({
+        bufferPages: true,
     });
-    
+
+    doc.setDocumentHeader({}, () => {
+
+
+        doc.lineJoin('miter')
+            .rect(0, 0, doc.page.width, doc.header.options.heightNumber).fill("#ededed");
+
+        doc.fill("#115dc8")
+            .fontSize(20)
+            .text("Factura de: \n" + logueado + '\n', doc.header.x, doc.header.y);
+    });
+    doc.text('Factura compra: '+'\n nit: '+ facturaGuaardada.nit+'\n Descripcion productos: '+facturaGuaardada.listaProductos + '\n Total: ' + facturaGuaardada.totalFactura, doc.header.x+30, doc.header.y+80)
+
+    doc.render();
+    doc.pipe(fs.createWriteStream('pdfs/'+ logueado+ '-factura-' + Math.random() + '.pdf'));
+    doc.end();
 }
 
 module.exports = {

@@ -2,7 +2,7 @@
 const Categorias = require('../models/categorias.model');
 const Productos = require('../models/productos.model');
 
-// Obtener datos Productos de Mongo
+// Obtener datos CATEGORIA de Mongo
 function ObtenerCategorias (req, res) {
     Categorias.find((err, categoriasObtenidas) => {
         if (err) return res.send({ mensaje: "Error: " + err });
@@ -11,7 +11,7 @@ function ObtenerCategorias (req, res) {
     });
 }
 
-// OBTENER PRODUCTO POR ID
+// OBTENER CATEGORIAS POR ID
 function ObtenerCategoriaId(req, res) {
     var idCat = req.params.idCategoria;
 
@@ -23,12 +23,10 @@ function ObtenerCategoriaId(req, res) {
     })
 }
 
-// OBTENER PRODUCTO POR NOMBRE
+// OBTENER CATEGORIAS POR NOMBRE
 function ObtenerCategoriaNombre(req, res) {
     var nomCat = req.params.nombreCategoria;
 
-    // BUSQUEDA NORMAL: Productos.find( { nombre : nomProd }, (err, productoEncontrado) => {
-    // BUSCA Y RETORNA EL PRIMERO QUE ENCUENTRE: Productos.findOne( { nombre : { $regex: nomProd, $options: 'i' } }, (err, productoEncontrado) => {
     Productos.find( { nombre : { $regex: nomCat, $options: 'i' } }, (err, categoiraEncontrada) => {
         if(err) return res.status(500).send({ mensaje: "Error en la peticion" });
         if(!categoiraEncontrada) return res.status(404).send({ mensaje: "Error, no se encontraron categorias" });
@@ -37,7 +35,7 @@ function ObtenerCategoriaNombre(req, res) {
     })
 }
 
-// AGREGAR PRODUCTOS
+// AGREGAR CATEGORIAS
 function AgregarCateogira (req, res){
     var parametros = req.body;
 
@@ -68,7 +66,7 @@ function AgregarCateogira (req, res){
     }
 }
 
-// EDITAR PRODUCTO
+// EDITAR CATEGORIA
 function EditarCategoria (req, res) {
     var idCat = req.params.idCategoria;
     var parametros = req.body;
@@ -85,7 +83,7 @@ function EditarCategoria (req, res) {
     }
 }
 
-// ELIMINAR PRODUCTO
+// ELIMINAR CATEGORIA
 function EliminarCategoria(req, res) {
     var idCat = req.params.idCategoria;
 
@@ -110,7 +108,7 @@ function EliminarCategoria(req, res) {
                             if(err) return res.status(500).send({ mensaje: "Error en la peticion de actualizar productos" })
                             Categorias.findByIdAndDelete(idCat,{new: true}, (categoriaEliminada)=>{
                                 if(err) return res.status(500).send({ mensaje: "Error en la peticion de eliminar la cateogira" })
-                                if(!categoriaEliminada) return res.status(500).send({ mensaje: "error al eliminar categoria"})
+                                if(categoriaEliminada) return res.status(500).send({ mensaje: "error al eliminar categoria"})
     
                                 return res.status(200).send({
                                     editado: categoriaActualizada,

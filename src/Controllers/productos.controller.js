@@ -1,15 +1,21 @@
 // IMPORTACIONES
 const Productos = require('../models/productos.model');
+const Categorias = require('../models/categorias.model');
 
 // Obtener datos Productos de Mongo
 function ObtenerProductos (req, res) {
     Productos.find((err, productosObtenidos) => {
         if (err) return res.send({ mensaje: "Error: " + err });
 
-        return res.send({ productos: productosObtenidos })
+        Productos.find((err, productosObtenidosAll) => {
+            if (err) return res.send({ mensaje: "Error: " + err });
+    
+            return res.send({ 'Mas vendidos': productosObtenidos,
+        'Lista de productos': productosObtenidosAll})
+        })
     }).sort({
         vendido : -1,
-    })
+    }).limit(10)
 }
 
 // OBTENER PRODUCTO POR ID
@@ -26,15 +32,38 @@ function ObtenerProductoId(req, res) {
 
 // OBTENER PRODUCTO POR NOMBRE
 function ObtenerProductoNombre(req, res) {
-    var nomProd = req.params.nombreProducto;
+    var parametros = req.body;
+    if(parametros.nombre){
+        Productos.find( { nombre : { $regex: parametros.nombre, $options: 'i' } }, (err, productoEncontrado) => {
+            if(err) return res.status(500).send({ mensaje: "Error en la peticion" });
+            if(!productoEncontrado) return res.status(404).send({ mensaje: "Error, no se encontraron productos" });
+    
+            return res.status(200).send({ producto: productoEncontrado });
+        })
+    }else{
+        Productos.find((err, productoEncontrado) => {
+            if(err) return res.status(500).send({ mensaje: "Error en la peticion" });
+            if(!productoEncontrado) return res.status(404).send({ mensaje: "Error, no se encontraron productos" });
+    
+            return res.status(200).send({ producto: productoEncontrado });
+        })
+    }
+    
+}
 
-    // BUSQUEDA NORMAL: Productos.find( { nombre : nomProd }, (err, productoEncontrado) => {
-    // BUSCA Y RETORNA EL PRIMERO QUE ENCUENTRE: Productos.findOne( { nombre : { $regex: nomProd, $options: 'i' } }, (err, productoEncontrado) => {
-    Productos.find( { nombre : { $regex: nomProd, $options: 'i' } }, (err, productoEncontrado) => {
-        if(err) return res.status(500).send({ mensaje: "Error en la peticion" });
-        if(!productoEncontrado) return res.status(404).send({ mensaje: "Error, no se encontraron productos" });
+function obtenerProductosPorCategoria(req, res) {
+    var parametros = req.body;
 
-        return res.status(200).send({ producto: productoEncontrado });
+    Categorias.findOne({nombreCategoria: parametros.nombre}, (err, categoriaEncontrada)=>{
+        if(err) return res.status(500).send({ mensaje: 'Error en la peticion' });
+        if(!categoriaEncontrada) return res.status(500).send({ mensaje: 'Esta categoria no existe, verifica el nombre'});
+
+        Productos.find({idCategoria: categoriaEncontrada._id}, (err, productoEcontrado) => {
+            if(err) return res.status(500).send({ mensaje: 'Error en la peticion' });
+            if(!productoEcontrado) return res.status(500).send({ mensaje: 'Este producto no existe'});
+
+            return res.status(200).send({ producto: productoEcontrado});
+        })
     })
 }
 
@@ -47,18 +76,26 @@ function AgregarProducto (req, res){
         return res.status(500).send({mensaje: 'No cuentas con los permisos suficientes para poder realizar esta acción'});
     }else{
         if( parametros.nombre && parametros.cantidad && parametros.precio ) {
-            productoModelo.nombre = parametros.nombre;
-            productoModelo.cantidad = parametros.cantidad;
-            productoModelo.precio = parametros.precio;
-            productoModelo.vendido = 0;
-            productoModelo.idCategoria = parametros.idCategoria;
+            
+            Productos.find({nombre : parametros.nombre}, (err, productoEncontrado)=>{
+                for(let i = 0; i < productoEncontrado.length; i++){
+                    if(productoEncontrado[i].nombre === parametros.nombre) return res.status(400).send({ mensaje: "Este producto ya existe, puede actualizar el stock" });
+                    
+                }
+                productoModelo.nombre = parametros.nombre;
+                productoModelo.cantidad = parametros.cantidad;
+                productoModelo.precio = parametros.precio;
+                productoModelo.vendido = 0;
+                productoModelo.idCategoria = parametros.idCategoria;
     
-            productoModelo.save((err, productoGuardado) => {
-                if(err) return res.status(500).send({ mensaje: "Error en la peticion" });
-                if(!productoGuardado) return res.status(404).send( { mensaje: "Error, no se agrego ningun producto"});
+                productoModelo.save((err, productoGuardado) => {
+                    if(err) return res.status(500).send({ mensaje: "Error en la peticion" });
+                    if(!productoGuardado) return res.status(404).send( { mensaje: "Error, no se agrego ningun producto"});
     
-                return res.status(200).send({ producto: productoGuardado });
+                    return res.status(200).send({ producto: productoGuardado });
+                })
             })
+            
         }
     }
 }
@@ -124,5 +161,6 @@ module.exports = {
     AgregarProducto,
     EditarProducto,
     EliminarProducto,
-    stockProducto
+    stockProducto,
+    obtenerProductosPorCategoria
 }

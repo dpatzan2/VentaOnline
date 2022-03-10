@@ -7,8 +7,9 @@ const md_autenticacion =  require('../middlewares/autenticacion');
 var api = express.Router();
 // PRODUCTOS
 api.get('/productos', productosController.ObtenerProductos);
+api.get('/productos/categoria', productosController.obtenerProductosPorCategoria);
 api.get('/productos/id/:idProductos', productosController.ObtenerProductoId);
-api.get('/productos/nombre/:nombreProducto', productosController.ObtenerProductoNombre);
+api.get('/productos/nombre', productosController.ObtenerProductoNombre);
 api.post('/productos/agregar', md_autenticacion.Auth,productosController.AgregarProducto);
 api.put('/productos/editar/:idProducto',md_autenticacion.Auth, productosController.EditarProducto);
 api.delete('/productos/eliminar/:idProducto', md_autenticacion.Auth,productosController.EliminarProducto);
