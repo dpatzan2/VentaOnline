@@ -1,9 +1,10 @@
 const Usuarios = require('../models/usuarios.model');
 const Producto = require('../models/productos.model');
+const Factura = require('../models/Factura.model');
 const bcrypt = require('bcrypt-nodejs');
 const jwt = require('../services/jwt');
 
-//METODO PARA OBTNER TODA LA LISTA DE USUARIOS (ADMINISTRADORES Y EMPRESAS)
+//METODO PARA OBTNER TODA LA LISTA DE USUARIOS (ADMINISTRADORES Y CLIENTES)
 
 function ObtenerUsuarios(req, res) {
 
@@ -23,9 +24,9 @@ function ObtenerUsuarios(req, res) {
 } 
 
 
-//METODO PARA AGREGAR EMPRESAS
+//METODO PARA AGREGAR CLIENTES
 
-function RegistrarEmpresas(req, res){
+function RegistrarClientes(req, res){
     var parametros = req.body;
     var usuarioModelo = new Usuarios();
 
@@ -73,7 +74,7 @@ function RegistrarAdministradores(req, res){
             usuarioModelo.nombre = parametros.nombre;
             usuarioModelo.apellido = parametros.apellido;
             usuarioModelo.usuario = parametros.usuario;
-            usuarioModelo.rol = parametros.rol;   
+            usuarioModelo.rol = 'ADMIN';   
            // if(parametros.rol != 'ROL_ALUMNO' || parametros.rol == '') return res.status(500).send({mensaje: 'No puedes elegir el rol, siempre sera "alumno"'});
             Usuarios.find({usuario: parametros.usuario}, (err, usuarioEcontrado) => {
                 if(usuarioEcontrado == 0){
@@ -128,55 +129,81 @@ function Login(req, res) {
     });
 }
 
-//METODO PARA PODER MODIFICAR USUARIOS (ADMNISTRADORES Y EMPRESAS)
+//METODO PARA PODER MODIFICAR USUARIOS (ADMNISTRADORES Y CLIENTES)
 
 function EditarUsuarios(req, res) {
     var idUsu = req.params.idUsuario;
     var parametros = req.body;
 
    if(req.user.rol == 'Cliente'){
-    if(idUsu !== req.user.sub) return res.status(500).send({mensaje: 'No tiene permitido editar otro perfil que no sea tuyo'});
-    Usuarios.findByIdAndUpdate(idUsu, parametros, {new: true}, (err, usuarioActualizado) => {
+    if(parametros.rol){
+        return res.status(500).send({message: 'No puedes modificar tu rol'})
+    }else{
+    Usuarios.findByIdAndUpdate({_id: req.user.sub}, parametros, {new: true}, (err, usuarioActualizado) => {
         if(err) return res.status(500).send({message: 'Error en la peticion'});
         if(!usuarioActualizado) return res.status(404).send({message: 'No se encontraron usuarios'});
 
-        return res.status(200).send({empresa: usuarioActualizado});
+        return res.status(200).send({usuario: usuarioActualizado});
     });
+}
 
    }else{
-       if(parametros.rol){
-           return res.status(500).send({message: 'No puedes modificar tu rol'})
-       }else{
-        Usuarios.findByIdAndUpdate(idUsu, parametros, {new: true}, (err, usuarioActualizado) => {
-            if(err) return res.status(500).send({message: 'Error en la peticion'});
-            if(!usuarioActualizado) return res.status(404).send({message: 'No se encontraron usuarios'});
-    
-            return res.status(200).send({usuarios: usuarioActualizado});
-        });
+       Usuarios.findById(idUsu, (err, usuarioEcontrado)=>{
+           if (err) return res.status(500).send({message: 'Ocurrio un error en la peticion de usuario'});
+           if(!usuarioEcontrado) return res.status(500).send({message: 'Este usuaio no existe'});
+
+           if(usuarioEcontrado.rol == 'Cliente'){
+            Usuarios.findByIdAndUpdate({_id: idUsu}, parametros, {new: true}, (err, usuarioActualizado) => {
+                if(err) return res.status(500).send({message: 'Error en la peticion'});
+                if(!usuarioActualizado) return res.status(404).send({message: 'No puedes modificar a otro admnistrador'});
+        
+                return res.status(200).send({usuarios: usuarioActualizado});
+            });
+           }else{
+               if(idUsu == req.user.sub){
+                   if(!parametros.rol){
+                    Usuarios.findByIdAndUpdate({_id: idUsu}, parametros, {new: true}, (err, usuarioActualizado) => {
+                        if(err) return res.status(500).send({message: 'Error en la peticion'});
+                        if(!usuarioActualizado) return res.status(404).send({message: 'No puedes modificar a otro admnistrador'});
+                
+                        return res.status(200).send({usuarios: usuarioActualizado});
+                    });
+                   }else{
+                       return res.status(500).send({mensaje: 'No puedes modificar tu rol'})
+                   }
+               }else{
+                   return res.status(500).send({mensaje: 'No puedes modificar a otro admnistrador'});
+               }
+           }
+       })
+        
        }
-   }
+  
 }
 
 
-//METODO PARA ELIMINAR USUARIOS (ADMINISTRADORES Y EMPRESAS)
+//METODO PARA ELIMINAR USUARIOS (ADMINISTRADORES Y CLIENTES)
 function EliminarUsuarios(req, res) {
     var idUsu = req.params.idUsuario;
 
     if(req.user.rol == 'Cliente'){
-        if(idUsu !== req.user.sub) return res.status(500).send({mensaje: 'No tiene permitido eliminar otros usuarios'});
-        Usuarios.findByIdAndDelete(idUsu, {new: true}, (err, usuarioEliminado) => {
+        Usuarios.findByIdAndDelete({_id: req.user.sub}, {new: true}, (err, usuarioEliminado) => {
         if(err) return res.status(500).send({message: 'Error en la peticion'});
         if(!usuarioEliminado) return res.status(404).send({message: 'No se encontraron usuarios'});
 
-        return res.status(200).send({empresa: usuarioEliminado});
+        return res.status(200).send({usuario: usuarioEliminado});
     })
     }else if(req.user.rol == 'ADMIN'){
-        Usuarios.findByIdAndDelete(idUsu, {new: true}, (err, usuarioEliminado) => {
-            if(err) return res.status(500).send({message: 'Error en la peticion'});
-            if(!usuarioEliminado) return res.status(404).send({message: 'No se encontraron usuarios'});
-    
-            return res.status(200).send({usuarios: usuarioEliminado});
-        })
+        if(idUsu == req.user.sub){
+            Usuarios.findByIdAndDelete(idUsu, {new: true}, (err, usuarioEliminado) => {
+                if(err) return res.status(500).send({message: 'Error en la peticion'});
+                if(!usuarioEliminado) return res.status(404).send({message: 'No se encontraron usuarios'});
+        
+                return res.status(200).send({usuarios: usuarioEliminado});
+            })
+        }else{
+            return res.status(500).send({mensaje: 'No puedes eliminar a otros administradores'})
+        }
     }else{
         return res.status(500).send({mensaje: 'Ocurrio un error, intentelo mas tarde'})
     }
@@ -246,44 +273,152 @@ function agregarProductoCarrito(req, res) {
     const usuarioLogeado = req.user.sub;
     const parametros = req.body;
 
-    Producto.findOne({ nombre: parametros.nombreProducto }, (err, productoEncontrado)=>{
-        if(err) return res.status(500).send({ mensaje: "Error en la peticion"});
-        if(!productoEncontrado) return res.status(404).send({ mensaje: 'Error al obtener el Producto'});
-
-        Usuarios.findByIdAndUpdate(usuarioLogeado, { $push: { carrito: { nombreProducto: parametros.nombreProducto,
-            cantidadComprada: parametros.cantidad, precioUnitario: productoEncontrado.precio, subTotal: parametros.cantidad *  productoEncontrado.precio} } }, { new: true}, 
-            (err, usuarioActualizado)=>{
-                if(err) return res.status(500).send({ mensaje: "Error en la peticion de Usuario"});
-                if(!usuarioActualizado) return res.status(500).send({ mensaje: 'Error al agregar el producto al carrito'});
-
-                let totalCantidad =0
-                let totalCarritoLocal = 0;
-
-                for(let i = 0; i < usuarioActualizado.carrito.length; i++){
-                    // totalCarritoLocal = totalCarritoLocal + usuarioActualizado.carrito[i].precioUnitario;
-                    //totalCarritoLocal += usuarioActualizado.carrito[i].precioUnitario 
-                    totalCantidad += usuarioActualizado.carrito[i].cantidadComprada;  
-                    totalCarritoLocal = usuarioActualizado.carrito[i].precioUnitario * totalCantidad;
-                    
-                }
-
-                Usuarios.findByIdAndUpdate(usuarioLogeado, { totalCarrito: totalCarritoLocal }, {new: true},
-                    (err, totalActualizado)=> {
-                        if(err) return res.status(500).send({ mensaje: "Error en la peticion de Total Carrito"});
-                        if(!totalActualizado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
-
-                        return res.status(200).send({ usuario: totalActualizado })
-                    })
-            })
-    })
-
-
+    if(req.user.rol == 'ADMIN'){
+        return res.status(500).send({mensaje: 'Eres un administrador, no puedes tener carrito'});
+    }else{
+        Producto.findOne({ nombre: parametros.nombreProducto }, (err, productoEncontrado)=>{
+            if(err) return res.status(500).send({ mensaje: "Error en la peticion"});
+            if(!productoEncontrado) return res.status(404).send({ mensaje: 'Este producto no existe o verifique que escribio bien el nombre del producto'});
     
+            if(parametros.cantidad > productoEncontrado.cantidad){
+                return res.status(500).send({mensaje: 'No contamos con suficiente stock'})
+            }else{
+                Usuarios.findOne({_id: req.user.sub, carrito:{$elemMatch: {nombreProducto: parametros.nombreProducto}}}, (err, carritoEncontrado) => {
+                    if (err) return res.status(500).send({ mensaje: 'Ocurrio un error en la petición'});
+                    
+        
+                    let cantidadLocal = 0;
+                    let subTotalLocal = 0;
+                    if(carritoEncontrado){
+                        for (let i = 0; i <carritoEncontrado.carrito.length; i++) {
+                            if(carritoEncontrado.carrito[i].nombreProducto == parametros.nombreProducto){
+                                cantidadLocal = carritoEncontrado.carrito[i].cantidadComprada;
+                                subTotalLocal = Number(cantidadLocal) + Number(parametros.cantidad);
+                            Usuarios.findOneAndUpdate({ carrito: { $elemMatch : { _id: carritoEncontrado.carrito[i]._id} } },
+                                {$inc: { "carrito.$.cantidadComprada":parametros.cantidad}, "carrito.$.subTotal": subTotalLocal  *  productoEncontrado.precio}, 
+                                 {new : true}, (err, cantidadAgregada)=>{
+                                    if(err) return res.status(500).send({ mensaje: "Error en la peticion" });
+                                    if(!cantidadAgregada) return res.status(500)
+                                        .send({ mensaje: "No tiene acceso para editar esta respuesta"});
+                        
+                                        let totalCantidad =0
+                                        let totalCarritoLocal = 0;
+                        
+                                        for(let i = 0; i < cantidadAgregada.carrito.length; i++){
+                                            // totalCarritoLocal = totalCarritoLocal + usuarioActualizado.carrito[i].precioUnitario;
+                                            totalCarritoLocal += cantidadAgregada.carrito[i].subTotal 
+                                             
+                                        }
+                        
+                                        Usuarios.findByIdAndUpdate(usuarioLogeado, { totalCarrito: totalCarritoLocal }, {new: true},
+                                            (err, totalActualizado)=> {
+                                                if(err) return res.status(500).send({ mensaje: "Error en la peticion de Total Carrito"});
+                                                if(!totalActualizado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
+                        
+                                                return res.status(200).send({ sdf: totalActualizado })
+                                            })
+                            })
+                            }else{
+        
+                            }
+                        }
+                    }else{
+                        Usuarios.findByIdAndUpdate(usuarioLogeado, { $push: { carrito: { nombreProducto: parametros.nombreProducto,
+                            cantidadComprada: parametros.cantidad, precioUnitario: productoEncontrado.precio, subTotal: parametros.cantidad *  productoEncontrado.precio} } }, { new: true}, 
+                            (err, usuarioActualizado)=>{
+                                if(err) return res.status(500).send({ mensaje: "Error en la peticion de Usuario"});
+                                if(!usuarioActualizado) return res.status(500).send({ mensaje: 'Error al agregar el producto al carrito'});
+                
+                                let totalCantidad =0
+                                let totalCarritoLocal = 0;
+                
+                                for(let i = 0; i < usuarioActualizado.carrito.length; i++){
+                                    // totalCarritoLocal = totalCarritoLocal + usuarioActualizado.carrito[i].precioUnitario;
+                                    totalCarritoLocal += usuarioActualizado.carrito[i].subTotal 
+                                     
+                                }
+                
+                                Usuarios.findByIdAndUpdate(usuarioLogeado, { totalCarrito: totalCarritoLocal }, {new: true},
+                                    (err, totalActualizado)=> {
+                                        if(err) return res.status(500).send({ mensaje: "Error en la peticion de Total Carrito"});
+                                        if(!totalActualizado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
+                
+                                        return res.status(200).send({ usuario: totalActualizado })
+                                    })
+                            })
+                    }
+                    
+                })
+        
+            }
+        })
+    }
+    
+}
+
+function carritoAfactura(req, res){
+
+     const facturaModel = new Factura();
+
+     if(req.user.rol == 'ADMIN'){
+         return res.status(500).send({mensaje: 'Eres un administrador, no puedes tener carrito y tampoco facturas'})
+     }else{
+        Usuarios.findById(req.user.sub, (err, usuarioEncontrado)=>{
+
+            if(usuarioEncontrado.carrito == ''){
+                return res.status(500).send({mensaje: 'El carrito esta vacio, no se puede generar una factura'})
+            }else{
+                facturaModel.listaProductos = usuarioEncontrado.carrito;
+                facturaModel.idUsuario = req.user.sub;
+                facturaModel.totalFactura = usuarioEncontrado.totalCarrito;
+    
+                facturaModel.save((err, facturaGuaardada) => {
+                    if (err) return res.status(500).send({mensaje : "Error en la peticion"});
+                    if(!facturaGuaardada) return res.status(500).send({mensaje : "Ocurrio un error al intentar guardar la factura"})
+            
+                
+                    for (let i = 0; i < usuarioEncontrado.carrito.length; i++) {
+                        Producto.findOneAndUpdate({nombre: usuarioEncontrado.carrito[i].nombreProducto} , 
+                            {  $inc : { cantidad: usuarioEncontrado.carrito[i].cantidadComprada * -1, 
+                            vendido: usuarioEncontrado.carrito[i].cantidadComprada }}, (err, datosProducto) =>{
+                        if (err) return res.status(500).send({mensaje: 'Error en la peticion'});
+                        if(!datosProducto) return res.status(500).send({mensaje: 'Ocurrio un error al modificar el stock'})
+    
+                    })
+                    }
+                })
+                Usuarios.findByIdAndUpdate(req.user.sub, { $set: { carrito: [] }, totalCarrito: 0 }, { new: true }, 
+                    (err, carritoVacio)=>{
+                        return res.status(200).send({ usuario: carritoVacio })
+                    })
+            }
+        }) 
+     }
+}
+
+function eliminarProductoCarrito(req, res) {
+    var parametros = req.body;
+
+    let totalCarritoLocal = 0;
+    Usuarios.updateOne({_id: req.user.sub},{ $pull: { carrito: {nombreProducto:parametros.nombreProducto} } }, (err, carritoEliminado)=>{
+        if(err) return res.status(500).send({mensaje: 'Error en la peticion'});
+        if(!carritoEliminado) return res.status(500).send({mensaje: 'Ocurrio un error al eliminar el proucto'});
+        for (let i = 0; i < carritoEliminado.carrito.length; i++){
+            
+        }
+        Usuarios.findByIdAndUpdate(req.user.sub, { $inc : { totalCarrito: usuarioEncontrado.carrito[i].cantidadComprada * -1 }}, {new: true},
+            (err, totalActualizado)=> {
+                if(err) return res.status(500).send({ mensaje: "Error en la peticion de Total Carrito"});
+                if(!totalActualizado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
+
+                return res.status(200).send({ usuario: totalActualizado })
+            })
+    });
 }
 
 module.exports = {
     ObtenerUsuarios,
-    RegistrarEmpresas,
+    RegistrarClientes,
     RegistrarAdministradores,
     EditarUsuarios,
     EliminarUsuarios,
@@ -292,5 +427,7 @@ module.exports = {
     BuscarUsuariosR,
     BuscarUsuariosId,
     Login,
-    agregarProductoCarrito
+    agregarProductoCarrito,
+    carritoAfactura,
+    eliminarProductoCarrito
 }
