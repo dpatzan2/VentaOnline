@@ -400,20 +400,35 @@ function eliminarProductoCarrito(req, res) {
     var parametros = req.body;
 
     let totalCarritoLocal = 0;
-    Usuarios.updateOne({_id: req.user.sub},{ $pull: { carrito: {nombreProducto:parametros.nombreProducto} } }, (err, carritoEliminado)=>{
-        if(err) return res.status(500).send({mensaje: 'Error en la peticion'});
-        if(!carritoEliminado) return res.status(500).send({mensaje: 'Ocurrio un error al eliminar el proucto'});
-        for (let i = 0; i < carritoEliminado.carrito.length; i++){
-            
-        }
-        Usuarios.findByIdAndUpdate(req.user.sub, { $inc : { totalCarrito: usuarioEncontrado.carrito[i].cantidadComprada * -1 }}, {new: true},
-            (err, totalActualizado)=> {
-                if(err) return res.status(500).send({ mensaje: "Error en la peticion de Total Carrito"});
-                if(!totalActualizado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
 
-                return res.status(200).send({ usuario: totalActualizado })
-            })
+    Producto.findOne({nombre: parametros.nombreProducto}, (err, productoEncontrado) => {
+        if (err) return res.status(500).send({mensaje: 'Error en la peticion'})
+        if(!productoEncontrado) return res.status(500).send({mensaje: 'Este producto no existe, verifica el nombre'});
+
+        Usuarios.updateOne({_id: req.user.sub},{ $pull: { carrito: {nombreProducto:parametros.nombreProducto} } }, (err, carritoEliminado)=>{
+            if(err) return res.status(500).send({mensaje: 'Error en la peticion'});
+            if(!carritoEliminado) return res.status(500).send({mensaje: 'Este producto no esta en tu carrito, verfica bien el nombre'});
+            Usuarios.findOne({_id: req.user.sub}, (err, usuarioEncontrado) =>{
+                if(err) return res.status(500).send({ mensaje: "Error en la peticion de Total Carrito"});
+                if(!usuarioEncontrado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
+    
+                for (let i = 0; i < usuarioEncontrado.carrito.length; i++){
+                    totalCarritoLocal += usuarioEncontrado.carrito[i].subTotal 
+                    console.log(totalCarritoLocal)   
+                }
+    
+                Usuarios.findByIdAndUpdate({_id: req.user.sub},  { totalCarrito: totalCarritoLocal }, {new: true},
+                    (err, totalActualizado)=> {
+                        if(err) return res.status(500).send({ mensaje: "Error en la peticion de Total Carrito"});
+                        if(!totalActualizado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
+        
+                        return res.status(200).send({ usuario: totalActualizado })
+                    });
+            });
+            
+        });
     });
+    
 }
 
 module.exports = {
