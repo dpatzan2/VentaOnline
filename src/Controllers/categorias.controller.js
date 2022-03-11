@@ -39,7 +39,7 @@ function ObtenerCategoriaNombre(req, res) {
 function AgregarCateogira (req, res){
     var parametros = req.body;
 
-    if(req.user.role == 'Cliente'){
+    if(req.user.rol == 'Cliente'){
         return res.status(500).send({mensaje: 'No cuentas con los permisos suficientes para poder realizar esta acción'});
     }else{
         

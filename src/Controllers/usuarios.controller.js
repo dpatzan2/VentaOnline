@@ -295,35 +295,40 @@ function agregarProductoCarrito(req, res) {
         
                     let cantidadLocal = 0;
                     let subTotalLocal = 0;
+                    let compararStock = 0;
                     if(carritoEncontrado){
                         for (let i = 0; i <carritoEncontrado.carrito.length; i++) {
                             if(carritoEncontrado.carrito[i].nombreProducto == parametros.nombreProducto){
                                 cantidadLocal = carritoEncontrado.carrito[i].cantidadComprada;
                                 subTotalLocal = Number(cantidadLocal) + Number(parametros.cantidad);
-                            Usuarios.findOneAndUpdate({ carrito: { $elemMatch : { _id: carritoEncontrado.carrito[i]._id} } },
-                                {$inc: { "carrito.$.cantidadComprada":parametros.cantidad}, "carrito.$.subTotal": subTotalLocal  *  productoEncontrado.precio}, 
-                                 {new : true}, (err, cantidadAgregada)=>{
-                                    if(err) return res.status(500).send({ mensaje: "Error en la peticion" });
-                                    if(!cantidadAgregada) return res.status(500)
-                                        .send({ mensaje: "Ocurrio un error al querer guardar la cantidad"});
-                        
-                                        let totalCantidad =0
-                                        let totalCarritoLocal = 0;
-                        
-                                        for(let i = 0; i < cantidadAgregada.carrito.length; i++){
-                                            // totalCarritoLocal = totalCarritoLocal + usuarioActualizado.carrito[i].precioUnitario;
-                                            totalCarritoLocal += cantidadAgregada.carrito[i].subTotal 
-                                             
-                                        }
-                        
-                                        Usuarios.findByIdAndUpdate(usuarioLogeado, { totalCarrito: totalCarritoLocal }, {new: true},
-                                            (err, totalActualizado)=> {
-                                                if(err) return res.status(500).send({ mensaje: "Error en la peticion de Total Carrito"});
-                                                if(!totalActualizado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
-                        
-                                                return res.status(200).send({ sdf: totalActualizado })
-                                            })
-                            })
+                                if(subTotalLocal > productoEncontrado.cantidad){
+                                    return res.status(500).send({mensaje: 'No contamos con stock suficiente'})
+                                }else{
+                                    Usuarios.findOneAndUpdate({ carrito: { $elemMatch : { _id: carritoEncontrado.carrito[i]._id} } },
+                                        {$inc: { "carrito.$.cantidadComprada":parametros.cantidad}, "carrito.$.subTotal": subTotalLocal  *  productoEncontrado.precio}, 
+                                         {new : true}, (err, cantidadAgregada)=>{
+                                            if(err) return res.status(500).send({ mensaje: "Error en la peticion" });
+                                            if(!cantidadAgregada) return res.status(500)
+                                                .send({ mensaje: "Ocurrio un error al querer guardar la cantidad"});
+                                
+                                                let totalCantidad =0
+                                                let totalCarritoLocal = 0;
+                                
+                                                for(let i = 0; i < cantidadAgregada.carrito.length; i++){
+                                                    // totalCarritoLocal = totalCarritoLocal + usuarioActualizado.carrito[i].precioUnitario;
+                                                    totalCarritoLocal += cantidadAgregada.carrito[i].subTotal 
+                                                     
+                                                }
+                                
+                                                Usuarios.findByIdAndUpdate(usuarioLogeado, { totalCarrito: totalCarritoLocal }, {new: true},
+                                                    (err, totalActualizado)=> {
+                                                        if(err) return res.status(500).send({ mensaje: "Error en la peticion de Total Carrito"});
+                                                        if(!totalActualizado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
+                                
+                                                        return res.status(200).send({ sdf: totalActualizado })
+                                                    })
+                                    })
+                                }
                             }else{
         
                             }

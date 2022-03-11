@@ -8,7 +8,7 @@ var api = express.Router();
 // FACTURAS
 api.get('/facturas', md_autenticacion.Auth,facturasController.mostrarListaFacturas);
 api.get('/facturas/productos', md_autenticacion.Auth,facturasController.mostrarProductosFacturas);
-api.get('/productos/agotados',facturasController.mostrarProductosAgotados);
+api.get('/productos/agotados',md_autenticacion.Auth,facturasController.mostrarProductosAgotados);
 api.get('/productos/mas-vendidos',facturasController.ObtenerProductosMasVendidos);
 
 

@@ -46,12 +46,16 @@ function mostrarProductosFacturas(req, res) {
 }
 
 function mostrarProductosAgotados(req, res) {
-    Producto.find({cantidad: '0'},(err, productoAgotados) => {
-        if(err) return res.status(500).send({mensaje: 'Error en la peticion'});
-        if(productoAgotados == '') return res.status(500).send({mensaje: 'No hay productos agotados'});
-
-        return res.status(200).send({'Productos agotados': productoAgotados})
-    })
+    if(req.user.sub == 'Cliente'){
+        return res.status(500).send({mensaje: 'No tienes acceso a esta informacion'})
+    }else{
+        Producto.find({cantidad: '0'},(err, productoAgotados) => {
+            if(err) return res.status(500).send({mensaje: 'Error en la peticion'});
+            if(productoAgotados == '') return res.status(500).send({mensaje: 'No hay productos agotados'});
+    
+            return res.status(200).send({'Productos agotados': productoAgotados})
+        })
+    }
 }
 
 function ObtenerProductosMasVendidos (req, res) {
