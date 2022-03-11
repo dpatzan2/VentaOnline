@@ -15,7 +15,7 @@ function ObtenerProductos (req, res) {
         })
     }).sort({
         vendido : -1,
-    }).limit(10)
+    }).limit(5)
 }
 
 // OBTENER PRODUCTO POR ID
@@ -41,12 +41,7 @@ function ObtenerProductoNombre(req, res) {
             return res.status(200).send({ producto: productoEncontrado });
         })
     }else{
-        Productos.find((err, productoEncontrado) => {
-            if(err) return res.status(500).send({ mensaje: "Error en la peticion" });
-            if(!productoEncontrado) return res.status(404).send({ mensaje: "Error, no se encontraron productos" });
-    
-            return res.status(200).send({ producto: productoEncontrado });
-        })
+        return res.status(500).send({mensaje: 'Coloque el nombre del producto'})
     }
     
 }
@@ -82,18 +77,24 @@ function AgregarProducto (req, res){
                     if(productoEncontrado[i].nombre === parametros.nombre) return res.status(400).send({ mensaje: "Este producto ya existe, puede actualizar el stock" });
                     
                 }
-                productoModelo.nombre = parametros.nombre;
-                productoModelo.cantidad = parametros.cantidad;
-                productoModelo.precio = parametros.precio;
-                productoModelo.vendido = 0;
-                productoModelo.idCategoria = parametros.idCategoria;
+                Categorias.findOne({_id: parametros.idCategoria}, (err, categoriaEncontrada)=>{
+                    if(err) return res.status(500).send({ mensaje: 'esta categoria no existe'});
+                    if(!categoriaEncontrada) return res.status(500).send({ mensaje: 'esta categoria no existe'})
+
+                    productoModelo.nombre = parametros.nombre;
+                    productoModelo.cantidad = parametros.cantidad;
+                    productoModelo.precio = parametros.precio;
+                    productoModelo.vendido = 0;
+                    productoModelo.idCategoria = parametros.idCategoria;
     
-                productoModelo.save((err, productoGuardado) => {
-                    if(err) return res.status(500).send({ mensaje: "Error en la peticion" });
-                    if(!productoGuardado) return res.status(404).send( { mensaje: "Error, no se agrego ningun producto"});
+                    productoModelo.save((err, productoGuardado) => {
+                        if(err) return res.status(500).send({ mensaje: "Error en la peticion" });
+                        if(!productoGuardado) return res.status(404).send( { mensaje: "Error, no se agrego ningun producto"});
     
-                    return res.status(200).send({ producto: productoGuardado });
+                        return res.status(200).send({ producto: productoGuardado });
+                    })
                 })
+                
             })
             
         }
@@ -108,18 +109,29 @@ function EditarProducto (req, res) {
     if(req.user.rol == 'Cliente'){
         return res.status(500).send({mensaje: 'No cuentas con los permisos suficientes para poder realizar esta acción'});
     }else{
-        Productos.findByIdAndUpdate(idProd, parametros, { new: true } ,(err, productoActualizado) => {
-            if (err) return res.status(500).send({ mensaje: 'Error en la peticion'});
-            if(!productoActualizado) return res.status(404).send( { mensaje: 'Error al Editar el Producto'});
-    
-            return res.status(200).send({ producto: productoActualizado});
-        });
+        if(parametros.cantidad){
+            Productos.findByIdAndUpdate(idProd,  { $inc : { cantidad: parametros.cantidad } }, { new: true } ,(err, productoActualizado) => {
+                if (err) return res.status(500).send({ mensaje: 'Error en la peticion'});
+                if(!productoActualizado) return res.status(404).send( { mensaje: 'Error al Editar el Producto'});
+        
+                return res.status(200).send({ producto: productoActualizado});
+            });
+        }else{
+            Productos.findByIdAndUpdate(idProd, parametros, { new: true } ,(err, productoActualizado) => {
+                if (err) return res.status(500).send({ mensaje: 'Error en la peticion'});
+                if(!productoActualizado) return res.status(404).send( { mensaje: 'Error al Editar el Producto'});
+        
+                return res.status(200).send({ producto: productoActualizado});
+            });
+        }
+        
     }
 }
 
 // ELIMINAR PRODUCTO
 function EliminarProducto(req, res) {
     var idProd = req.params.idProducto;
+    var parametros = req.body;
 
     if(req.user.rol == 'Cliente'){
         return res.status(500).send({mensaje: 'No cuentas con los permisos suficientes para poder realizar esta acción'});

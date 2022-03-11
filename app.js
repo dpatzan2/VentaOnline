@@ -7,6 +7,7 @@ var app = express();
 const UsuariosRutas = require('./src/routes/usuarios.routes');
 const ProductosRutas = require('./src/routes/productos.routes');
 const CategoriasRutas = require('./src/routes/categorias.routes');
+const FacturasRutas = require('./src/routes/facturas.routes');
 
 
 //middleware
@@ -19,7 +20,7 @@ app.use(cors());
 
 //carga de rutas
 
-app.use('/api', UsuariosRutas, ProductosRutas, CategoriasRutas);
+app.use('/api', UsuariosRutas, ProductosRutas, CategoriasRutas, FacturasRutas);
 
 
 

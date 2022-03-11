@@ -5,7 +5,7 @@ const md_autenticacion =  require('../middlewares/autenticacion');
 
 // RUTAS
 var api = express.Router();
-// PRODUCTOS
+// CATEGORIAS
 api.get('/categorias', categoriasController.ObtenerCategorias);
 api.get('/categorias/id/:idCategoria', categoriasController.ObtenerCategoriaId);
 api.get('/categorias/nombre/:nombreCategoria', categoriasController.ObtenerCategoriaNombre);

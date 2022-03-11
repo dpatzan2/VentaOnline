@@ -14,10 +14,7 @@ function ObtenerUsuarios(req, res) {
     }else{
         Usuarios.find((err , usuariosObtenidos) => {
             if(err) return res.send({mensaje: "error:" + err})
-        
-            for (let i = 0; i < usuariosObtenidos.length; i++) {
-            console.log(usuariosObtenidos[i].nombre)
-            }
+            if(!usuariosObtenidos) return res.status(500).send({mensaje: 'No hay usuarios en la base de datos'});
         
         return res.send({usuarios: usuariosObtenidos})
     })
@@ -114,8 +111,14 @@ function Login(req, res) {
 
                     //SI EL PARAMETRO OBTENERTOKEN ES TRUE, CREA EL TOKEN
                     if(parametros.obtenerToken === 'true'){
-
-                        return res.status(500).send({token: jwt.crearToken(usuarioEcontrado)});
+                        Factura.find({idUsuario: usuarioEcontrado._id}, (err, facturaEncontrada)=>{
+                            if(err) return res.status(500).send({mensaje: 'Error en la peticion'});
+                            if(!facturaEncontrada) return res.status(500).send({mensaje: 'Este usuario no ha realizado ninguna compra'})
+                    
+                            return res.status(200).send({token: jwt.crearToken(usuarioEcontrado), 'tus compras: ': facturaEncontrada}
+                                );
+                        })
+                        //return res.status(500).send({token: jwt.crearToken(usuarioEcontrado)});
                     }else{
                         usuarioEcontrado.password = undefined;
                         return res.status(200).send({usuario: usuarioEcontrado});
@@ -123,13 +126,14 @@ function Login(req, res) {
                 }else{
                     return res.status(500).send({message: 'la contraseña no coincide'});
                 }
-            });
+            }); 
 
         }else{
             return res.status(500).send({mensaje: 'El correo no se encuentra registrado'});
         }
     });
 }
+
 
 //METODO PARA PODER MODIFICAR USUARIOS (ADMNISTRADORES Y CLIENTES)
 
@@ -301,7 +305,7 @@ function agregarProductoCarrito(req, res) {
                                  {new : true}, (err, cantidadAgregada)=>{
                                     if(err) return res.status(500).send({ mensaje: "Error en la peticion" });
                                     if(!cantidadAgregada) return res.status(500)
-                                        .send({ mensaje: "No tiene acceso para editar esta respuesta"});
+                                        .send({ mensaje: "Ocurrio un error al querer guardar la cantidad"});
                         
                                         let totalCantidad =0
                                         let totalCarritoLocal = 0;
@@ -397,11 +401,12 @@ function carritoAfactura(req, res){
     
                     })
                     }
+                    Usuarios.findByIdAndUpdate(req.user.sub, { $set: { carrito: [] }, totalCarrito: 0 }, { new: true }, 
+                        (err, carritoVacio)=>{
+                            return res.status(200).send({ factura: facturaGuaardada })
+                        })
                 })
-                Usuarios.findByIdAndUpdate(req.user.sub, { $set: { carrito: [] }, totalCarrito: 0 }, { new: true }, 
-                    (err, carritoVacio)=>{
-                        return res.status(200).send({ usuario: carritoVacio })
-                    })
+                
             }
         }) 
      }
@@ -427,8 +432,7 @@ function eliminarProductoCarrito(req, res) {
                     if(!usuarioEncontrado) return res.status(500).send({ mensaje: 'Error al modificar el total del carrito'});
         
                     for (let i = 0; i < usuarioEncontrado.carrito.length; i++){
-                        totalCarritoLocal += usuarioEncontrado.carrito[i].subTotal 
-                        console.log(totalCarritoLocal)   
+                        totalCarritoLocal += usuarioEncontrado.carrito[i].subTotal  
                     }
         
                     Usuarios.findByIdAndUpdate({_id: req.user.sub},  { totalCarrito: totalCarritoLocal }, {new: true},
@@ -446,8 +450,9 @@ function eliminarProductoCarrito(req, res) {
 }
 
 function obtenerPDF(facturaGuaardada, logueado)  {
-    let contador = 0;
-    console.log(facturaGuaardada)
+    var hoy = new Date();
+    var fecha = hoy.getDate() + '-' + ( hoy.getMonth() + 1 ) + '-' + hoy.getFullYear();	
+    var hora = hoy.getHours() + '_' + hoy.getMinutes() + '_' + hoy.getSeconds();
     const doc = new PdfkitConstruct({
         bufferPages: true,
     });
@@ -460,12 +465,24 @@ function obtenerPDF(facturaGuaardada, logueado)  {
 
         doc.fill("#115dc8")
             .fontSize(20)
-            .text("Factura de: \n" + logueado + '\n', doc.header.x, doc.header.y);
+            .text("Factura de: \n" + logueado + '\n', doc.header.x+40, doc.header.y);
     });
-    doc.text('Factura compra: '+'\n nit: '+ facturaGuaardada.nit+'\n Descripcion productos: '+facturaGuaardada.listaProductos + '\n Total: ' + facturaGuaardada.totalFactura, doc.header.x+30, doc.header.y+80)
+    
+        doc.text('Factura compra: '+'\n nit: '+ facturaGuaardada.nit+'\n Descripcion productos: '+facturaGuaardada.listaProductos + '\n Total: ' + facturaGuaardada.totalFactura, doc.header.x+80, doc.header.y+80)
+    
+        doc.setDocumentFooter({}, () => {
+
+            doc.lineJoin('miter')
+                .rect(0, doc.footer.y, doc.page.width, doc.footer.options.heightNumber).fill("#ededed");
+
+            doc.fill("#000000")
+                .fontSize(8)
+                .text("Fecha: " + fecha + ' ' + hora, doc.footer.x, doc.footer.y-45);
+        });
+
 
     doc.render();
-    doc.pipe(fs.createWriteStream('pdfs/'+ logueado+ '-factura-' + Math.random() + '.pdf'));
+    doc.pipe(fs.createWriteStream('pdfs/'+ logueado+ '-factura-' + fecha+ '-'+ hora + '.pdf'));
     doc.end();
 }
 

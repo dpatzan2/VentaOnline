@@ -6,8 +6,14 @@ exports.crearToken = function (usuario) {
     let payload = {
         sub: usuario._id,
         nombre: usuario.nombre,
-        usuario: usuario.usuarios,
+        usuario: usuario.usuario,
         rol: usuario.rol,
+        carrito: [{
+            nombreProducto: usuario.nombreProducto,
+            cantidadComprada: usuario.cantidadComprada,
+            precioUnitario: usuario.precioUnitario,
+            subTotal: usuario.subTotal,
+        }],
         iat: moment().unix(),
         exp: moment().day(7, 'days').unix()
     }
