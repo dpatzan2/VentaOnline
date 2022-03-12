@@ -46,7 +46,7 @@ function mostrarProductosFacturas(req, res) {
 }
 
 function mostrarProductosAgotados(req, res) {
-    if(req.user.sub == 'Cliente'){
+    if(req.user.rol == 'Cliente'){
         return res.status(500).send({mensaje: 'No tienes acceso a esta informacion'})
     }else{
         Producto.find({cantidad: '0'},(err, productoAgotados) => {

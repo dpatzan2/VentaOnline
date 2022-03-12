@@ -113,7 +113,7 @@ function Login(req, res) {
                     if(parametros.obtenerToken === 'true'){
                         Factura.find({idUsuario: usuarioEcontrado._id}, (err, facturaEncontrada)=>{
                             if(err) return res.status(500).send({mensaje: 'Error en la peticion'});
-                            if(!facturaEncontrada) return res.status(500).send({mensaje: 'Este usuario no ha realizado ninguna compra'})
+                            if(facturaEncontrada == '') return res.status(500).send({token: jwt.crearToken(usuarioEcontrado), mensaje: 'Este usuario no ha realizado ninguna compra'})
                     
                             return res.status(200).send({token: jwt.crearToken(usuarioEcontrado), 'tus compras: ': facturaEncontrada}
                                 );
@@ -166,20 +166,34 @@ function EditarUsuarios(req, res) {
                 return res.status(200).send({usuarios: usuarioActualizado});
             });
            }else{
-               if(idUsu == req.user.sub){
-                   if(!parametros.rol){
-                    Usuarios.findByIdAndUpdate({_id: idUsu}, parametros, {new: true}, (err, usuarioActualizado) => {
+               if(parametros.rol){
+                   if(parametros.nombre || parametros.usuario){
+                       return res.status(500).send({mensaje: 'no puedes mmodificar mas, solo su rol'})
+                   }else{
+                    Usuarios.findByIdAndUpdate({_id: idUsu}, {rol: parametros.rol}, {new: true}, (err, usuarioActualizado) => {
                         if(err) return res.status(500).send({message: 'Error en la peticion'});
                         if(!usuarioActualizado) return res.status(404).send({message: 'No puedes modificar a otro admnistrador'});
                 
                         return res.status(200).send({usuarios: usuarioActualizado});
                     });
-                   }else{
-                       return res.status(500).send({mensaje: 'No puedes modificar tu rol'})
                    }
                }else{
-                   return res.status(500).send({mensaje: 'No puedes modificar a otro admnistrador'});
+                if(idUsu == req.user.sub){
+                    if(!parametros.rol){
+                     Usuarios.findByIdAndUpdate({_id: idUsu}, parametros, {new: true}, (err, usuarioActualizado) => {
+                         if(err) return res.status(500).send({message: 'Error en la peticion'});
+                         if(!usuarioActualizado) return res.status(404).send({message: 'No puedes modificar a otro admnistrador'});
+                 
+                         return res.status(200).send({usuarios: usuarioActualizado});
+                     });
+                    }else{
+                        return res.status(500).send({mensaje: 'No puedes modificar tu rol'})
+                    }
+                }else{
+                    return res.status(500).send({mensaje: 'No puedes modificar a otro admnistrador'});
+                }
                }
+               
            }
        })
         
@@ -200,18 +214,34 @@ function EliminarUsuarios(req, res) {
         return res.status(200).send({usuario: usuarioEliminado});
     })
     }else if(req.user.rol == 'ADMIN'){
-        if(idUsu == req.user.sub){
-            Usuarios.findByIdAndDelete(idUsu, {new: true}, (err, usuarioEliminado) => {
-                if(err) return res.status(500).send({message: 'Error en la peticion'});
-                if(!usuarioEliminado) return res.status(404).send({message: 'No se encontraron usuarios'});
-        
-                return res.status(200).send({usuarios: usuarioEliminado});
-            })
-        }else{
-            return res.status(500).send({mensaje: 'No puedes eliminar a otros administradores'})
-        }
+        Usuarios.findById(idUsu, (err, usuarioEncontrado) => {
+            if(err) return res.status(500).send({message: 'Error en la peticion'});
+            if(!usuarioEncontrado) return res.status(404).send({message: 'No se encontraron usuarios'});
+
+            if(idUsu == req.user.sub){
+                Usuarios.findByIdAndDelete(idUsu, {new: true}, (err, usuarioEliminado) => {
+                    if(err) return res.status(500).send({message: 'Error en la peticion'});
+                    if(!usuarioEliminado) return res.status(404).send({message: 'No se encontraron usuarios'});
+            
+                    return res.status(200).send({usuarios: usuarioEliminado});
+                })
+            }else{
+                if(usuarioEncontrado.rol == 'ADMIN'){
+                    return res.status(500).send({mensaje: 'No puedes eliminar a otro administrador'});
+                }else{
+                    Usuarios.findByIdAndDelete(idUsu, {new: true}, (err, usuarioEliminado) => {
+                        if(err) return res.status(500).send({message: 'Error en la peticion'});
+                        if(!usuarioEliminado) return res.status(404).send({message: 'No se encontraron usuarios'});
+                
+                        return res.status(200).send({usuarios: usuarioEliminado});
+                    })
+                }
+            }
+
+            
+        })
     }else{
-        return res.status(500).send({mensaje: 'Ocurrio un error, intentelo mas tarde'})
+        return res.status(500).send({mensaje: 'error'})
     }
 
     
@@ -473,8 +503,13 @@ function obtenerPDF(facturaGuaardada, logueado)  {
             .text("Factura de: \n" + logueado + '\n', doc.header.x+40, doc.header.y);
     });
     
-        doc.text('Factura compra: '+'\n nit: '+ facturaGuaardada.nit+'\n Descripcion productos: '+facturaGuaardada.listaProductos + '\n Total: ' + facturaGuaardada.totalFactura, doc.header.x+80, doc.header.y+80)
-    
+        doc.text('Factura no: '+ facturaGuaardada._id, doc.header.x+80, doc.header.y+80)
+        doc.text('******************************************************************');
+        doc.text('Datos del cliente:'+'\n nit: '+ facturaGuaardada.nit)
+        doc.text('******************************************************************');
+        doc.text('Detalles de la compra: '+'\n productos: '+facturaGuaardada.listaProductos);
+        doc.text('******************************************************************');
+        doc.text('Total: ' + facturaGuaardada.totalFactura)
         doc.setDocumentFooter({}, () => {
 
             doc.lineJoin('miter')
