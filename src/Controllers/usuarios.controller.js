@@ -316,7 +316,7 @@ function agregarProductoCarrito(req, res) {
             if(err) return res.status(500).send({ mensaje: "Error en la peticion"});
             if(!productoEncontrado) return res.status(404).send({ mensaje: 'Este producto no existe o verifique que escribio bien el nombre del producto'});
     
-            if(parametros.cantidad >= productoEncontrado.cantidad){
+            if(parametros.cantidad > productoEncontrado.cantidad){
                 return res.status(500).send({mensaje: 'No contamos con suficiente stock'})
             }else{
                 Usuarios.findOne({_id: req.user.sub, carrito:{$elemMatch: {nombreProducto: parametros.nombreProducto}}}, (err, carritoEncontrado) => {
